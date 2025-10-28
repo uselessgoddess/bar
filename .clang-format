@@ -1,7 +1,7 @@
 BasedOnStyle: Google
-ColumnLimit: 80
+ColumnLimit: 90
 IndentWidth: 2
-AllowShortFunctionsOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: Inline
 AllowShortLambdasOnASingleLine: Inline
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false

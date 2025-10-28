@@ -1,9 +1,13 @@
 #include <cstdio>
+#include <fstream>
 #include <argh.h>
+#include <bar.hxx>
 
 auto main(int, char* argv[]) -> int {
   argh::parser args(argv);
 
-  if (args[{"-h", "--help"}])
-    puts("bottle archiver");
+  auto bar = std::ofstream("arc.bar", std::ios::binary);
+  auto bottle = bar::bottle(bar);
+
+  bottle.append("build");
 }
