@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <istream>
+#include <iostream> // temp
 #include <cstring>
 #include <vector>
 #include "entry.hxx"
@@ -45,6 +46,7 @@ class opener {
       if (entry.size() > 0) {
         // TODO !use less suckless solution
         std::vector<char> buf(65536);
+        std::cout << entry.path().generic_string() << "\n";
         for (uint64_t rem = entry.size(); rem > 0;) {
           input_.read(buf.data(), std::min<uint64_t>(rem, buf.size()));
           if (const auto n = input_.gcount()) {
