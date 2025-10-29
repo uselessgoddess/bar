@@ -1,5 +1,9 @@
+#pragma once
+
 #include <cstdint>
 #include <array>
+
+namespace bar {
 
 constexpr std::array<uint8_t, 4> BAR = {0xf0, 0x9f, 0x8d, 0xbe};
 
@@ -16,4 +20,10 @@ struct header_t {
 };  // 1 + 1 + 8 + 2 + 4 + 8
 #pragma pack(pop)
 
-static_assert(sizeof(header_t) == 24);
+static_assert(sizeof(header_t) == 24);  // less than cacheline
+
+struct header {
+  using repr = std::array<uint8_t, sizeof(header_t)>;
+};
+
+}  // namespace bar
