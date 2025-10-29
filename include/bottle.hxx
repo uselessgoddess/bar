@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <filesystem>
 #include <stdexcept>
-#include <iostream>  // temp
 #include "header.hxx"
 #include "entry.hxx"
 #include "sys.hxx"
@@ -70,7 +69,6 @@ struct bottle {
 
     output_.write(reinterpret_cast<const char*>(&buf), sizeof(buf));
     output_.write(path_str.data(), header.path);
-    std::cout << "!" << path_str << "\n";
   }
 
   void write_entry(header_t header, const fs::path& rel, std::istream& input) {

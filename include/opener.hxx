@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <istream>
-#include <iostream> // temp
 #include <cstring>
 #include <vector>
 #include "entry.hxx"
@@ -22,7 +21,7 @@ class opener {
     }
   }
 
-  std::optional<entry> next_entry() {
+  auto next_entry() -> std::optional<entry> {
     header::repr buf;
     if (!input_.read(reinterpret_cast<char*>(&buf), sizeof(buf))) {
       return std::nullopt;
@@ -36,8 +35,8 @@ class opener {
     return entry(fs::path(path), header);
   }
 
-  void unpack(const entry& entry, const fs::path& dest_dir) {
-    auto full_path = dest_dir / entry.path();
+  void unpack(const entry& entry, const fs::path& path) {
+    auto full_path = path / entry.path();
     if (entry.is_dir()) {
       fs::create_directories(full_path);
     } else if (entry.is_reg()) {
@@ -46,7 +45,6 @@ class opener {
       if (entry.size() > 0) {
         // TODO !use less suckless solution
         std::vector<char> buf(65536);
-        std::cout << entry.path().generic_string() << "\n";
         for (uint64_t rem = entry.size(); rem > 0;) {
           input_.read(buf.data(), std::min<uint64_t>(rem, buf.size()));
           if (const auto n = input_.gcount()) {
