@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <stdexcept>
+#include <fstream>
 #include "header.hxx"
 #include "entry.hxx"
 #include "sys.hxx"
