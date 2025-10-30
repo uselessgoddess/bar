@@ -19,6 +19,8 @@ if get_option('libcxx')
     cpp_link_args += ['-stdlib=libc++', '-lc++abi']
 endif
 
+fmt = dependency('fmt', version : ['>=8.1.1'], fallback : ['fmt', 'fmt_dep'])
+
 inc_dirs = ['include']
 
 src_files = files(
@@ -29,3 +31,25 @@ executable(
     [src_files],
     include_directories: inc_dirs,
 )
+
+catch2 = dependency(
+    'catch2',
+    default_options: [ 'tests=false' ],
+    fallback: ['catch2', 'catch2_dep'],
+    required: get_option('tests'),
+)
+if catch2.found()
+    subdir('tests')
+endif
+
+clangtidy = find_program('clang-tidy', required: false)
+
+if clangtidy.found()
+    run_target(
+        'tidy',
+        command: [
+            clangtidy,
+            '-checks=*,-fuchsia-default-arguments',
+            '-p', meson.project_build_root()
+        ] + src_files)
+endif
