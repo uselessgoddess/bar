@@ -3,10 +3,9 @@
 #include <tuple>
 
 #include <argparse/argparse.hpp>
-#include <fmt/color.h>
-#include "fmt.hxx"
 
 #include <bar.hxx>
+#include "fmt.hxx"
 #include "cmd.hxx"
 
 using argparse::ArgumentParser;

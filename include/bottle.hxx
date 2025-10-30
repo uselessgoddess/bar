@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <stdexcept>
 #include <fstream>
+#include <concepts>
 #include "header.hxx"
 #include "entry.hxx"
 #include "sys.hxx"
@@ -87,6 +88,11 @@ struct bottle {
   }
 
   void write_dir_all(const fs::path& path) {
+    write_dir_all(path, [](const fs::path&, uint64_t) {});
+  }
+
+  template <std::invocable<const fs::path&, uint64_t> F>
+  void write_dir_all(const fs::path& path, F visitor) {
     auto base = path.parent_path();
 
     if (auto header_opt = sys::header_from(path)) {
@@ -95,11 +101,14 @@ struct bottle {
 
     for (const auto& item : fs::recursive_directory_iterator(path)) {
       if (auto header_opt = sys::header_from(item.path())) {
+        auto rel = fs::relative(item.path(), base);
+
         if (item.is_regular_file()) {
           std::ifstream in(item.path(), ios::binary);
-          write_entry(*header_opt, fs::relative(item.path(), base), in);
+          write_entry(*header_opt, rel, in);
+          visitor(rel, header_opt->data);  // TODO !should it touch directories?
         } else {
-          write_entry(*header_opt, fs::relative(item.path(), base));
+          write_entry(*header_opt, rel);
         }
       }
     }

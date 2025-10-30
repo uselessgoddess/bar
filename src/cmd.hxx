@@ -3,22 +3,62 @@
 #include <fstream>
 #include <filesystem>
 #include <bar.hxx>
+#include <numeric>
+
+#include "fmt.hxx"
+#include "sad/sad.hxx"
+#include "src/sad/progress.hxx"
 
 namespace fs = std::filesystem;
+namespace ranges = std::ranges;
 using ios = std::ios;
+
+struct config_t {
+  bool sad = false;
+};
+
+auto size_of(const fs::path& path) -> uint64_t {
+  uint64_t size = 0;
+  std::error_code ignore;
+
+  if (fs::is_directory(path, ignore)) {
+    for (const auto& item : fs::recursive_directory_iterator(path)) {
+      if (item.is_regular_file(ignore)) {
+        size += item.file_size(ignore);
+      }
+    }
+  } else if (fs::is_regular_file(path, ignore)) {
+    size += fs::file_size(path, ignore);
+  }
+
+  return size;
+}
 
 struct add_t {
   fs::path archive;
   std::vector<fs::path> inputs;
 };
 
-auto add(const add_t& args) -> int {
+auto add(const config_t& config, const add_t& args) -> int {
+  std::optional<ProgressBar> progress;
+
+#if HAVE_BARKEEP
+  if (!config.sad) {
+    auto total_size = std::transform_reduce(args.inputs.begin(), args.inputs.end(),
+                                            uint64_t(0), std::plus{}, size_of);
+    progress.emplace(total_size);
+  }
+#endif
+
   std::ofstream out(args.archive, ios::binary);
   auto bottle = bar::bottle(out);
 
   for (const auto& path : args.inputs) {
     if (fs::is_directory(path)) {
-      bottle.write_dir_all(path);
+      bottle.write_dir_all(path, [&progress](const fs::path& _, uint64_t size) {
+        if (progress)
+          progress->inc(size);
+      });
     } else if (fs::is_regular_file(path)) {
       bottle.write_file(path);
     } else {

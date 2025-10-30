@@ -1,0 +1,8 @@
+[wrap-file]
+directory = barkeep-0.1.5
+source_url = https://github.com/oir/barkeep/archive/refs/tags/v0.1.5.zip
+source_filename = barkeep-0.1.5.zip
+source_hash = 60535ba5fe53d729b46de771a8636c89d27e929700b5e6613c3d91a1de06d163
+
+[provide]
+barkeep = barkeep_dep

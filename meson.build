@@ -18,16 +18,22 @@ endif
 
 fmt = dependency('fmt', version: ['>=8.1.1'], fallback: ['fmt', 'fmt_dep'])
 argparse = dependency('argparse')
+barkeep = dependency('barkeep', required: get_option('barkeep'))
 
 inc_dirs = ['include']
 
 src_files = files(
   'src/main.cxx',
 )
+
+if barkeep.found()
+    add_project_arguments('-DHAVE_BARKEEP', language: 'cpp')
+endif
+
 executable(
   'bar',
   [src_files],
-  dependencies: [fmt, argparse],
+  dependencies: [fmt, argparse, barkeep],
   include_directories: inc_dirs,
 )
 
