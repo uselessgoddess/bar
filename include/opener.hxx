@@ -21,7 +21,7 @@ class opener {
     }
   }
 
-  std::optional<entry> next_entry() {
+  auto next_entry() -> std::optional<entry> {
     header::repr buf;
     if (!input_.read(reinterpret_cast<char*>(&buf), sizeof(buf))) {
       return std::nullopt;
@@ -35,8 +35,8 @@ class opener {
     return entry(fs::path(path), header);
   }
 
-  void unpack(const entry& entry, const fs::path& dest_dir) {
-    auto full_path = dest_dir / entry.path();
+  void unpack(const entry& entry, const fs::path& path) {
+    auto full_path = path / entry.path();
     if (entry.is_dir()) {
       fs::create_directories(full_path);
     } else if (entry.is_reg()) {

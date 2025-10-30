@@ -8,6 +8,7 @@
 #include "header.hxx"
 
 namespace bar::sys {
+
 constexpr bool is_little_endian = (std::endian::native == std::endian::little);
 
 template <std::integral T>
@@ -45,7 +46,7 @@ void write_header(header::repr* buf, header_t header) {
   std::memcpy(buf, &header, sizeof(header_t));
 }
 
-header_t read_header(const header::repr* buf) {
+auto read_header(const header::repr* buf) -> header_t {
   header_t header;
   std::memcpy(&header, buf, sizeof(header_t));
 

@@ -1,1 +1,2 @@
-option('libcxx', type : 'boolean', value : false, description : 'Build with Clang\'s libc++ instead of libstdc++ on Linux.')
+option('libcxx', type: 'boolean', value: false, description: 'Build with Clang\'s libc++ instead of libstdc++ on Linux.')
+option('tests', type: 'feature', value: 'auto', description: 'Enable tests')
