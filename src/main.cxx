@@ -1,141 +1,105 @@
 #include <cstdio>
-#include <fstream>
-#include <iostream>
-#include <filesystem>
+#include <functional>
+#include <tuple>
+
+#include <argparse/argparse.hpp>
+#include <fmt/color.h>
+#include "fmt.hxx"
+
 #include <bar.hxx>
-#include <format>
-#include <ostream>
-#include <utility>
+#include "cmd.hxx"
 
-#include "opener.hxx"
-#include "utils/argh.h"
+using argparse::ArgumentParser;
 
-namespace fs = std::filesystem;
-using ios = std::ios;
+struct subcommand_t {
+  ArgumentParser& parser;
+  std::function<void()> handler;
+};
 
-namespace std {
-template <typename... Args>
-inline void eprint(format_string<Args...> fmt, Args&&... args) {
-  std::print(std::cerr, std::move(fmt), std::forward<decltype(args)...>(args...));
-}
-template <typename... Args>
-inline void eprintln(format_string<Args...> fmt, Args&&... args) {
-  std::println(std::cerr, std::move(fmt), std::forward<decltype(args)...>(args...));
-}
-}  // namespace std
+auto add_cmd(ArgumentParser& cmd) {
+  cmd.add_description("add files to an archive.");
+  cmd.add_argument("-o", "--output").required().help("output archive file.");
+  cmd.add_argument("files")
+      .help("input files and directories.")
+      .nargs(argparse::nargs_pattern::at_least_one);
 
-constexpr auto USAGE =
-    R"(usage: bar <command> [options] <archive> [files...]
-    commands:
-      a <files...> -o <archive>  Add files to archive
-      x <archive> [-o <output>]  Extract files with full paths
-      l <archive>                List contents of archive
-    options:
-     -o, --output <file>  Specify the output archive file
-     -h, --help           Show this help message
-    )";
-
-auto add(const fs::path& archive_file, const std::vector<fs::path>& inputs) -> int {
-  std::ofstream out(archive_file, ios::binary);
-  auto bottle = bar::bottle(out);
-
-  for (const auto& path : inputs) {
-    if (fs::is_directory(path)) {
-      bottle.write_dir_all(path);
-    } else if (fs::is_regular_file(path)) {
-      bottle.write_file(path);
-    } else {
-      std::cerr << "warning: skipping unsupported file type: " << path.string() << "\n";
+  auto handler = [&cmd]() mutable {
+    add_t args;
+    args.archive = cmd.get<std::string>("-o");
+    auto input_strings = cmd.get<std::vector<std::string>>("files");
+    for (const auto& s : input_strings) {
+      args.inputs.emplace_back(s);
     }
-  }
+    add(args);
+  };
 
-  std::cout << "archive '" << archive_file.string() << "' created.\n";
-  return EXIT_SUCCESS;
+  return subcommand_t(cmd, handler);
 }
 
-auto extract(const fs::path& archive_file, const fs::path& dest_dir) -> int {
-  fs::create_directories(dest_dir);
+auto extract_cmd(ArgumentParser& cmd) {
+  cmd.add_description("extract files from an archive.");
+  cmd.add_argument("archive").help("archive file to extract.");
+  cmd.add_argument("-o", "--output")
+      .help("Directory to extract to.")
+      .default_value(std::string("."));
 
-  std::ifstream in(archive_file, ios::binary);
-  bar::opener op(in);
-  while (auto entry_opt = op.next_entry()) {
-    op.unpack(*entry_opt, dest_dir);
-  }
+  auto handler = [&cmd]() mutable {
+    extract_t args;
+    args.archive = cmd.get<std::string>("archive");
+    args.output = cmd.get<std::string>("-o");
+    extract(args);
+  };
 
-  return EXIT_SUCCESS;
+  return subcommand_t(cmd, handler);
 }
 
-auto list(const fs::path& archive_file) -> int {
-  std::ifstream in(archive_file, ios::binary);
-  auto opener = bar::opener(in);
-  while (auto entry_opt = opener.next_entry()) {
-    const auto& entry = *entry_opt;
-    std::cout << std::format("{} {}\t\t{}\n", (entry.is_dir() ? 'd' : '-'), entry.size(),
-                             entry.path().string());
-    opener.skip(entry);
-  }
-  return EXIT_SUCCESS;
+auto list_cmd(ArgumentParser& cmd) {
+  cmd.add_description("list contents of an archive.");
+  cmd.add_argument("archive").help("archive file to list.");
+
+  auto handler = [&cmd]() mutable {
+    list_t args;
+    args.archive = cmd.get<std::string>("archive");
+    list(args);
+  };
+
+  return subcommand_t(cmd, handler);
 }
 
 auto main(int argc, char* argv[]) -> int {
   std::ios_base::sync_with_stdio(false);
 
-  argh::parser cmdl({"-o", "--output"});
-  cmdl.parse(argc, argv);
+  ArgumentParser program("bar", "0.1");
+  program.add_description("bar - bottle archiver.");
 
-  if (cmdl[{"-h", "--help"}]) {
-    std::cout << USAGE;
-    return EXIT_SUCCESS;
-  }
+  ArgumentParser a("a"), x("x"), l("l");
+  auto commands = std::make_tuple(add_cmd(a), extract_cmd(x), list_cmd(l));
 
-  const auto& pos_args = cmdl.pos_args();
-  if (pos_args.size() < 2) {
-    std::cerr << "error: no command specified.\n" << USAGE;
+  std::apply([&program](auto&&... cmds) { (program.add_subparser(cmds.parser), ...); },
+             commands);
+
+  try {
+    program.parse_args(argc, argv);
+  } catch (const std::runtime_error& err) {
+    fmt::eprintln(emphasis::bold | fg(terminal_color::red), "{}", err.what());
     return EXIT_FAILURE;
   }
 
-  const auto& command = pos_args[1];
-
-  if (command == "a") {
-    if (pos_args.size() < 3) {
-      std::cerr << "error: 'a' command requires at least one input file.\n";
-      return EXIT_FAILURE;
-    }
-
-    fs::path archive;
-    if (!(cmdl({"-o", "--output"}) >> archive)) {
-      std::cerr
-          << "error: 'a' command requires an output archive file specified with -o.\n";
-      return EXIT_FAILURE;
-    }
-
-    std::vector<fs::path> inputs;
-    for (size_t i = 2; i < pos_args.size(); ++i) {
-      inputs.emplace_back(pos_args[i]);
-    }
-    return add(archive, inputs);
+  try {
+    std::apply(
+        [&program](auto&&... cmds) {
+          (
+              ..., (void)[&program](auto&& sub) {
+                if (program.is_subcommand_used(sub.parser)) {
+                  sub.handler();
+                }
+              }(cmds));
+        },
+        commands);
+  } catch (const std::exception& e) {
+    fmt::eprintln("error: {}", e.what());
+    return EXIT_FAILURE;
   }
 
-  if (command == "x") {
-    if (pos_args.size() != 3) {
-      std::cerr << "error: 'x' command requires exactly one archive name.\n";
-      return EXIT_FAILURE;
-    }
-    fs::path archive = pos_args[2];
-    fs::path output;
-    cmdl({"-o", "--output"}) >> output;
-    return extract(archive, output);
-  }
-
-  if (command == "l") {
-    if (pos_args.size() != 3) {
-      std::cerr << "error: 'l' command requires exactly one archive name.\n";
-      return EXIT_FAILURE;
-    }
-    fs::path archive = pos_args[2];
-    return list(archive);
-  }
-
-  std::cerr << "unknown command '" << command << "'.\n" << USAGE;
-  return EXIT_FAILURE;
+  return EXIT_SUCCESS;
 }

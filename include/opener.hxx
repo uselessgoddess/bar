@@ -4,6 +4,7 @@
 #include <istream>
 #include <cstring>
 #include <vector>
+#include <fstream>
 #include "entry.hxx"
 #include "sys.hxx"
 
