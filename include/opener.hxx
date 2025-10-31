@@ -62,7 +62,7 @@ class opener {
   }
 
   void skip(const entry& entry) {
-    if (entry.size() > 0) {
+    if (entry.is_reg() && entry.size() > 0) {
       input_.seekg(entry.size(), std::ios::cur);
     }
   }

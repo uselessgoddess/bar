@@ -17,7 +17,7 @@ namespace bar {
 
 namespace sys {
 auto header_from(const fs::path& path) -> std::optional<header_t> {
-  header_t header;
+  header_t header{.data = 0};
 #if defined(__linux__) || defined(__APPLE__)
   struct stat st;
   if (lstat(path.c_str(), &st) != 0) {
