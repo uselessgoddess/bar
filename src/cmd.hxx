@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <fstream>
 #include <filesystem>
 #include <bar.hxx>
@@ -7,7 +8,6 @@
 
 #include "fmt.hxx"
 #include "sad/sad.hxx"
-#include "src/sad/progress.hxx"
 
 namespace fs = std::filesystem;
 namespace ranges = std::ranges;
@@ -17,7 +17,7 @@ struct config_t {
   bool sad = false;
 };
 
-auto size_of(const fs::path& path) -> uint64_t {
+auto size_of(const fs::path& path, uint64_t* files = nullptr) -> uint64_t {
   uint64_t size = 0;
   std::error_code ignore;
 
@@ -25,10 +25,14 @@ auto size_of(const fs::path& path) -> uint64_t {
     for (const auto& item : fs::recursive_directory_iterator(path)) {
       if (item.is_regular_file(ignore)) {
         size += item.file_size(ignore);
+        if (files != nullptr)
+          *files += 1;
       }
     }
   } else if (fs::is_regular_file(path, ignore)) {
     size += fs::file_size(path, ignore);
+    if (files != nullptr)
+      *files += 1;
   }
 
   return size;
@@ -44,9 +48,13 @@ auto add(const config_t& config, const add_t& args) -> int {
 
 #if HAVE_BARKEEP
   if (!config.sad) {
-    auto total_size = std::transform_reduce(args.inputs.begin(), args.inputs.end(),
-                                            uint64_t(0), std::plus{}, size_of);
-    progress.emplace(total_size);
+    uint64_t files = 0;
+    auto total_size = std::transform_reduce(
+        args.inputs.begin(), args.inputs.end(), uint64_t(0), std::plus{},
+        [&files](auto&& path) { return size_of(path, &files); });
+    if (files > 1) {
+      progress.emplace(files, total_size);
+    }
   }
 #endif
 
@@ -56,8 +64,9 @@ auto add(const config_t& config, const add_t& args) -> int {
   for (const auto& path : args.inputs) {
     if (fs::is_directory(path)) {
       bottle.write_dir_all(path, [&progress](const fs::path& _, uint64_t size) {
-        if (progress)
+        if (progress) {
           progress->inc(size);
+        }
       });
     } else if (fs::is_regular_file(path)) {
       bottle.write_file(path);

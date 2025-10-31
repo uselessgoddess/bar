@@ -28,6 +28,7 @@ src_files = files(
 
 if barkeep.found()
     add_project_arguments('-DHAVE_BARKEEP', language: 'cpp')
+    add_project_arguments('-DBARKEEP_ENABLE_FMT_FORMAT', language: 'cpp')
 endif
 
 executable(

@@ -10,42 +10,43 @@
 
 namespace fs = std::filesystem;
 
-auto format_bytes(uint64_t bytes) -> std::string {
-  if (bytes < 1024)
-    return fmt::format("{} B", bytes);
-  double kb = bytes / 1024.0;
-  if (kb < 1024.0)
-    return fmt::format("{:.1f} KiB", kb);
-  double mb = kb / 1024.0;
-  if (mb < 1024.0)
-    return fmt::format("{:.2f} MiB", mb);
-  double gb = mb / 1024.0;
-  return fmt::format("{:.2f} GiB", gb);
+using order = std::memory_order;
+using Style = barkeep::ProgressBarStyle;
+
+auto mb(uint64_t bytes) -> float {
+  return bytes / (1024.0 * 1024.0);
 }
 
 struct ProgressBar {
-  using Progress = barkeep::ProgressBarDisplay<std::atomic<uint64_t>>;
-  using Config = barkeep::ProgressBarConfig<uint64_t>;
+  ProgressBar(uint64_t files, uint64_t bytes) {
+    auto bar = barkeep::ProgressBar(&bytes_, {
+                                                 .total = mb(bytes),
+                                                 .format = "{speed:.1f} MB/s {bar}",
+                                                 .speed = 0.0,
+                                                 .speed_unit = "MB/s",
+                                                 .style = Style::Rich,
+                                                 .show = false,
+                                             });
 
-  ProgressBar(uint64_t total_size) {
-    auto config = Config{.total = total_size,
-                         .speed = 1.0 / (1024 * 1024),
-                         .speed_unit = "MB/s",
-                         .style = barkeep::ProgressBarStyle::Rich};
-    bar_ = barkeep::ProgressBar(&bytes, config);
+    auto format = fmt::format("{{value}}/{}", files);
+    auto counter = barkeep::Counter(&files_, {
+                                                 .format = format,
+                                                 .show = false,
+                                             });
+    bar_ = bar | counter;
+    bar_->show();
   }
 
-  void message(const std::string& message) {
-    if (bar_) {
-      // bar_->message(message);
-    }
+  void inc(uint64_t bytes) {
+    files_.fetch_add(1, order::seq_cst);
+    bytes_.fetch_add(mb(bytes), order::seq_cst);
   }
-
-  void inc(uint64_t add) { bytes.fetch_add(add, std::memory_order::seq_cst); }
 
   ~ProgressBar() { bar_->done(); }
 
  private:
-  std::atomic<uint64_t> bytes{0};
-  std::shared_ptr<Progress> bar_;
+  std::atomic<float> bytes_{0};
+  std::atomic<uint64_t> files_{0};
+
+  std::shared_ptr<barkeep::CompositeDisplay> bar_;
 };

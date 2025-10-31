@@ -12,7 +12,7 @@ using argparse::ArgumentParser;
 
 struct subcommand_t {
   ArgumentParser& parser;
-  std::function<void()> handler;
+  std::function<void(config_t)> handler;
 };
 
 auto add_cmd(ArgumentParser& cmd) {
@@ -22,14 +22,14 @@ auto add_cmd(ArgumentParser& cmd) {
       .help("input files and directories.")
       .nargs(argparse::nargs_pattern::at_least_one);
 
-  auto handler = [&cmd]() mutable {
+  auto handler = [&cmd](config_t config) mutable {
     add_t args;
     args.archive = cmd.get<std::string>("-o");
     auto input_strings = cmd.get<std::vector<std::string>>("files");
     for (const auto& s : input_strings) {
       args.inputs.emplace_back(s);
     }
-    add(args);
+    add(config, args);
   };
 
   return subcommand_t(cmd, handler);
@@ -42,7 +42,7 @@ auto extract_cmd(ArgumentParser& cmd) {
       .help("Directory to extract to.")
       .default_value(std::string("."));
 
-  auto handler = [&cmd]() mutable {
+  auto handler = [&cmd](config_t config) mutable {
     extract_t args;
     args.archive = cmd.get<std::string>("archive");
     args.output = cmd.get<std::string>("-o");
@@ -56,7 +56,7 @@ auto list_cmd(ArgumentParser& cmd) {
   cmd.add_description("list contents of an archive.");
   cmd.add_argument("archive").help("archive file to list.");
 
-  auto handler = [&cmd]() mutable {
+  auto handler = [&cmd](config_t config) mutable {
     list_t args;
     args.archive = cmd.get<std::string>("archive");
     list(args);
@@ -68,8 +68,14 @@ auto list_cmd(ArgumentParser& cmd) {
 auto main(int argc, char* argv[]) -> int {
   std::ios_base::sync_with_stdio(false);
 
+  auto config = config_t{};
+
   ArgumentParser program("bar", "0.1");
   program.add_description("bar - bottle archiver.");
+  program.add_argument("-s", "--sad")
+      .help(fmt::format("suppress colors and animations (sad mode)."))
+      .default_value(false)
+      .implicit_value(true);
 
   ArgumentParser a("a"), x("x"), l("l");
   auto commands = std::make_tuple(add_cmd(a), extract_cmd(x), list_cmd(l));
@@ -86,11 +92,11 @@ auto main(int argc, char* argv[]) -> int {
 
   try {
     std::apply(
-        [&program](auto&&... cmds) {
+        [&program, config](auto&&... cmds) {
           (
-              ..., (void)[&program](auto&& sub) {
+              ..., (void)[&program, config ](auto&& sub) {
                 if (program.is_subcommand_used(sub.parser)) {
-                  sub.handler();
+                  sub.handler(config);
                 }
               }(cmds));
         },
